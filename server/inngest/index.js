@@ -133,8 +133,185 @@ const syncUserDeletion = inngest.createFunction(
   }
 );
 
+// Inngest Function to save workspace data to a database
+const syncWorkspaceCreation = inngest.createFunction(
+  { id: 'sync-workspace-from-clerk' },
+  { event: 'clerk/organization.created' },
+  async ({ event, step }) => {
+    return await step.run('create-workspace', async () => {
+      try {
+        const { data } = event;
+        
+        // Validate required data exists
+        if (!data?.id) {
+          throw new Error('Workspace ID is missing from webhook data');
+        }
+        
+        if (!data?.created_by) {
+          throw new Error('Creator ID is missing from webhook data');
+        }
+        
+        if (!data?.name) {
+          throw new Error('Workspace name is missing from webhook data');
+        }
+
+        console.log('Creating workspace with ID:', data.id);
+
+        const workspace = await prisma.workspace.create({
+          data: {
+            id: data.id,
+            name: data.name,
+            slug: data.slug,
+            ownerId: data.created_by,
+            image_url: data.image_url,
+          }
+        });
+
+        // Add creator as ADMIN member
+        await prisma.workspaceMember.create({
+          data: {
+            userId: data.created_by,
+            workspaceId: data.id,
+            role: "ADMIN"
+          }
+        });
+
+        console.log('✅ Workspace created successfully:', workspace.id);
+        return { success: true, workspaceId: workspace.id };
+        
+      } catch (error) {
+        console.error('❌ Error creating workspace:', error);
+        throw error;
+      }
+    });
+  }
+);
+
+// Inngest Function to update workspace data in database
+const syncWorkspaceUpdation = inngest.createFunction(
+  { id: 'update-workspace-from-clerk' },
+  { event: 'clerk/organization.updated' },
+  async ({ event, step }) => {
+    return await step.run('update-workspace', async () => {
+      try {
+        const { data } = event;
+        
+        if (!data?.id) {
+          throw new Error('Workspace ID is missing from webhook data');
+        }
+
+        console.log('Updating workspace with ID:', data.id);
+
+        const updateData = {};
+        
+        // Only update fields that are present
+        if (data.name) {
+          updateData.name = data.name;
+        }
+        
+        if (data.slug) {
+          updateData.slug = data.slug;
+        }
+        
+        if (data.image_url !== undefined) {
+          updateData.image_url = data.image_url;
+        }
+
+        const workspace = await prisma.workspace.update({
+          where: { id: data.id },
+          data: updateData,
+        });
+
+        console.log('✅ Workspace updated successfully:', workspace.id);
+        return { success: true, workspaceId: workspace.id };
+        
+      } catch (error) {
+        console.error('❌ Error updating workspace:', error);
+        throw error;
+      }
+    });
+  }
+);
+
+// Inngest Function to delete workspace from database
+const syncWorkspaceDeletion = inngest.createFunction(
+  { id: 'delete-workspace-with-clerk' },
+  { event: 'clerk/organization.deleted' },
+  async ({ event, step }) => {
+    return await step.run('delete-workspace', async () => {
+      try {
+        const { data } = event;
+        
+        if (!data?.id) {
+          throw new Error('Workspace ID is missing from webhook data');
+        }
+
+        console.log('Deleting workspace with ID:', data.id);
+
+        await prisma.workspace.delete({
+          where: { id: data.id },
+        });
+
+        console.log('✅ Workspace deleted successfully');
+        return { success: true, deletedId: data.id };
+        
+      } catch (error) {
+        console.error('❌ Error deleting workspace:', error);
+        throw error;
+      }
+    });
+  }
+);
+
+// Inngest Function to save workspace member data to a database
+const syncWorkspaceMemberCreation = inngest.createFunction(
+  { id: 'sync-workspace-member-from-clerk' },
+  { event: 'clerk/organizationInvitation.accepted' },
+  async ({ event, step }) => {
+    return await step.run('create-workspace-member', async () => {
+      try {
+        const { data } = event;
+        
+        // Validate required data exists
+        if (!data?.user_id) {
+          throw new Error('User ID is missing from webhook data');
+        }
+        
+        if (!data?.organization_id) {
+          throw new Error('Organization ID is missing from webhook data');
+        }
+        
+        if (!data?.role_name) {
+          throw new Error('Role name is missing from webhook data');
+        }
+
+        console.log('Creating workspace member:', data.user_id, 'for workspace:', data.organization_id);
+
+        const member = await prisma.workspaceMember.create({
+          data: {
+            userId: data.user_id,
+            workspaceId: data.organization_id,
+            role: String(data.role_name).toUpperCase(),
+          }
+        });
+
+        console.log('✅ Workspace member created successfully');
+        return { success: true, memberId: member.id };
+        
+      } catch (error) {
+        console.error('❌ Error creating workspace member:', error);
+        throw error;
+      }
+    });
+  }
+);
+
 export const functions = [
   syncUserCreation,
   syncUserDeletion,
-  syncUserUpdation
+  syncUserUpdation,
+  syncWorkspaceCreation,
+  syncWorkspaceUpdation,
+  syncWorkspaceDeletion,
+  syncWorkspaceMemberCreation
 ];
