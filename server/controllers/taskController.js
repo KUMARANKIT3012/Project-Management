@@ -39,12 +39,14 @@ export const createTask = async (req, res) => {
             include: { assignee: true }
         })
 
+        // Send event to Inngest with all required data
         await inngest.send({
-        name: "app/task.assigned",
-        data: {
-            taskId: task.id,
-            origin
-        }
+            name: "app/task.assigned",
+            data: {
+                taskId: task.id,
+                dueDate: task.due_date,  // ADD THIS LINE
+                origin
+            }
         });
 
 
