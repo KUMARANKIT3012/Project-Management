@@ -1,7 +1,7 @@
 // lib/inngest/functions.js
 import { Inngest } from "inngest";
 import { PrismaClient } from '@prisma/client';
-import sendEmail from "../configs/nodemailer";
+import sendEmail from "../configs/nodemailer.js";
 
 // Singleton pattern for Prisma (prevents connection exhaustion in serverless)
 const globalForPrisma = globalThis;
