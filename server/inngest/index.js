@@ -1,17 +1,11 @@
-// lib/inngest/functions.js
 import { Inngest } from "inngest";
-import { PrismaClient } from '@prisma/client';
+import prisma from "../configs/prisma.js";
 import sendEmail from "../configs/nodemailer.js";
-
-// Singleton pattern for Prisma (prevents connection exhaustion in serverless)
-const globalForPrisma = globalThis;
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
 // Create Inngest client
 export const inngest = new Inngest({ 
   id: "project-management",
-  eventKey: process.env.INNGEST_EVENT_KEY // Add this if you have one
+  eventKey: process.env.INNGEST_EVENT_KEY
 });
 
 // Inngest Function to save user data to a database
@@ -313,28 +307,44 @@ const sendTaskAssignmentEmail = inngest.createFunction(
     { id: "send-task-assignment-mail" },
     { event: "app/task.assigned" },
     async ({ event, step }) => {
-        try {
-            const { taskId, origin } = event.data;
+        return await step.run('send-assignment-email', async () => {
+            try {
+                const { taskId, origin } = event.data;
 
-            if (!taskId) {
-                throw new Error('Task ID is missing from event data');
-            }
+                if (!taskId) {
+                    console.log('❌ Task ID is missing from event data');
+                    return { success: false, error: 'Task ID missing' };
+                }
 
-            await step.run('send-assignment-email', async () => {
+                console.log('📧 Fetching task with ID:', taskId);
+
                 const task = await prisma.task.findUnique({
                     where: { id: taskId },
                     include: { assignee: true, project: true }
                 });
 
-                if (!task || !task.assignee || !task.project) {
-                    throw new Error('Task, assignee, or project not found');
+                if (!task) {
+                    console.log('❌ Task not found');
+                    return { success: false, error: 'Task not found' };
                 }
+
+                if (!task.assignee) {
+                    console.log('⚠️ Task has no assignee, skipping email');
+                    return { success: true, skipped: 'No assignee' };
+                }
+
+                if (!task.project) {
+                    console.log('❌ Task has no project');
+                    return { success: false, error: 'No project' };
+                }
+
+                console.log('📧 Sending email to:', task.assignee.email);
 
                 await sendEmail({
                     to: task.assignee.email,
                     subject: `New Task Assignment in ${task.project.name}`,
                     body: `<div style="max-width: 600px;">
-                        <h2>Hi ${task.assignee.name}, 👋</h2>
+                        <h2>Hi ${task.assignee.name || 'there'}, 👋</h2>
 
                         <p style="font-size: 16px;">You've been assigned a new task:</p>
                         <p style="font-size: 18px; font-weight: bold; color: #007bff; margin: 8px 0;">
@@ -343,10 +353,10 @@ const sendTaskAssignmentEmail = inngest.createFunction(
 
                         <div style="border: 1px solid #ddd; padding: 12px 16px; border-radius: 6px; margin-bottom: 30px;">
                             <p style="margin: 6px 0;"><strong>Description:</strong> ${task.description || 'No description'}</p>
-                            <p style="margin: 6px 0;"><strong>Due Date:</strong> ${new Date(task.due_date).toLocaleDateString()}</p>
+                            <p style="margin: 6px 0;"><strong>Due Date:</strong> ${task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date'}</p>
                         </div>
 
-                        <a href="${origin}" style="background-color: #007bff; padding: 12px 24px; border-radius: 5px; color: #fff; font-weight: 600; font-size: 16px; text-decoration: none;">
+                        <a href="${origin || '#'}" style="background-color: #007bff; padding: 12px 24px; border-radius: 5px; color: #fff; font-weight: 600; font-size: 16px; text-decoration: none;">
                             View Task
                         </a>
 
@@ -357,74 +367,13 @@ const sendTaskAssignmentEmail = inngest.createFunction(
                 });
 
                 console.log('✅ Task assignment email sent successfully');
-            });
+                return { success: true, taskId: task.id };
 
-            // Only schedule reminder if task has a due date and it's in the future
-            if (event.data.dueDate) {
-                const dueDate = new Date(event.data.dueDate);
-                const today = new Date();
-                
-                if (dueDate > today) {
-                    await step.sleepUntil('wait-for-the-due-date', dueDate);
-
-                    await step.run('check-if-task-is-completed', async () => {
-                        const task = await prisma.task.findUnique({
-                            where: { id: taskId },
-                            include: { assignee: true, project: true }
-                        });
-
-                        if (!task || !task.assignee || !task.project) {
-                            console.log('Task, assignee, or project not found for reminder');
-                            return;
-                        }
-
-                        if (task.status !== "DONE") {
-                            await sendEmail({
-                                to: task.assignee.email,
-                                subject: `Reminder for ${task.project.name}`,
-                                body: `<div style="max-width: 600px;">
-                                    <h2>Hi ${task.assignee.name}, 👋</h2>
-
-                                    <p style="font-size: 16px;">
-                                        You have a task due in ${task.project.name}:
-                                    </p>
-
-                                    <p style="font-size: 18px; font-weight: bold; color: #007bff; margin: 8px 0;">
-                                        ${task.title}
-                                    </p>
-
-                                    <div style="border: 1px solid #ddd; padding: 12px 16px; border-radius: 6px; margin-bottom: 30px;">
-                                        <p style="margin: 6px 0;">
-                                            <strong>Description:</strong> ${task.description || 'No description'}
-                                        </p>
-                                        <p style="margin: 6px 0;">
-                                            <strong>Due Date:</strong> ${new Date(task.due_date).toLocaleDateString()}
-                                        </p>
-                                    </div>
-
-                                    <a href="${origin}"
-                                        style="background-color: #007bff; padding: 12px 24px; border-radius: 5px; color: #fff; font-weight: 600; font-size: 16px; text-decoration: none;">
-                                        View Task
-                                    </a>
-
-                                    <p style="margin-top: 20px; font-size: 14px; color: #6c757d;">
-                                        Please make sure to review and complete it before the due date.
-                                    </p>
-                                </div>`
-                            });
-
-                            console.log('✅ Task reminder email sent successfully');
-                        } else {
-                            console.log('Task already completed, no reminder sent');
-                        }
-                    });
-                }
+            } catch (error) {
+                console.error('❌ Error in task assignment email function:', error);
+                return { success: false, error: error.message };
             }
-
-        } catch (error) {
-            console.error('❌ Error in task assignment email function:', error);
-            throw error;
-        }
+        });
     }
 );
 
