@@ -3,10 +3,13 @@ import { Mail, UserPlus } from "lucide-react";
 import { useSelector } from "react-redux";
 import { useOrganization } from "@clerk/clerk-react";
 import toast from "react-hot-toast";
+import axios from "axios"; // ✅ ADDED
+
+const BASE_URL = import.meta.env.VITE_BASEURL; // ✅ ADDED
 
 const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen }) => {
 
-    const {organization} = useOrganization()
+    const { organization } = useOrganization();
 
     const currentWorkspace = useSelector((state) => state.workspace?.currentWorkspace || null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -18,15 +21,29 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
+
         try {
-            await organization.inviteMember({emailAddress: formData.email, role: formData.role})
-            toast.success("Invitation sent successfully!")
-            setIsDialogOpen(false)
+            // ✅ 1️⃣ Invite via Clerk (keeps auth/org membership working)
+            await organization.inviteMember({
+                emailAddress: formData.email,
+                role: formData.role
+            });
+
+            // ✅ 2️⃣ Call YOUR backend to trigger email + inngest
+            await axios.post(`${BASE_URL}/api/invite`, {
+                email: formData.email,
+                role: formData.role,
+                workspaceId: currentWorkspace?.id
+            });
+
+            toast.success("Invitation sent successfully!");
+            setIsDialogOpen(false);
+
         } catch (error) {
             console.log(error);
-            toast.error(error.response?.data?.message || error.message)
-        } finally{
-            setIsSubmitting(false)
+            toast.error(error.response?.data?.message || error.message);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -56,14 +73,25 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                         </label>
                         <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 dark:text-zinc-400 w-4 h-4" />
-                            <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="Enter email address" className="pl-10 mt-1 w-full rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-200 text-sm placeholder-zinc-400 dark:placeholder-zinc-500 py-2 focus:outline-none focus:border-blue-500" required />
+                            <input
+                                type="email"
+                                value={formData.email}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                placeholder="Enter email address"
+                                className="pl-10 mt-1 w-full rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-200 text-sm placeholder-zinc-400 dark:placeholder-zinc-500 py-2 focus:outline-none focus:border-blue-500"
+                                required
+                            />
                         </div>
                     </div>
 
                     {/* Role */}
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-zinc-900 dark:text-zinc-200">Role</label>
-                        <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} className="w-full rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-200 py-2 px-3 mt-1 focus:outline-none focus:border-blue-500 text-sm" >
+                        <select
+                            value={formData.role}
+                            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                            className="w-full rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-200 py-2 px-3 mt-1 focus:outline-none focus:border-blue-500 text-sm"
+                        >
                             <option value="org:member">Member</option>
                             <option value="org:admin">Admin</option>
                         </select>
@@ -71,10 +99,18 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen }) => {
 
                     {/* Footer */}
                     <div className="flex justify-end gap-3 pt-2">
-                        <button type="button" onClick={() => setIsDialogOpen(false)} className="px-5 py-2 rounded text-sm border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition" >
+                        <button
+                            type="button"
+                            onClick={() => setIsDialogOpen(false)}
+                            className="px-5 py-2 rounded text-sm border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                        >
                             Cancel
                         </button>
-                        <button type="submit" disabled={isSubmitting || !currentWorkspace} className="px-5 py-2 rounded text-sm bg-gradient-to-br from-blue-500 to-blue-600 text-white disabled:opacity-50 hover:opacity-90 transition" >
+                        <button
+                            type="submit"
+                            disabled={isSubmitting || !currentWorkspace}
+                            className="px-5 py-2 rounded text-sm bg-gradient-to-br from-blue-500 to-blue-600 text-white disabled:opacity-50 hover:opacity-90 transition"
+                        >
                             {isSubmitting ? "Sending..." : "Send Invitation"}
                         </button>
                     </div>
