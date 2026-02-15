@@ -4,6 +4,7 @@ import nodemailer from 'nodemailer';
 const transporter = nodemailer.createTransport({
     host: "smtp-relay.brevo.com",
     port: 587, // true for 465, false for other ports
+    secure: false, // Brevo uses STARTTLS (must be false)
     auth: {
         user: process.env.SMTP_USER, // generated ethereal user
         pass: process.env.SMTP_PASS, // generated ethereal password
