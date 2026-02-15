@@ -1,25 +1,26 @@
-import nodemailer from "nodemailer";
+import nodemailer from 'nodemailer';
 
-const sendEmail = async ({ to, subject, body }) => {
-  // Create transporter INSIDE function (required for Vercel)
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
+// Create a test account or replace with real credentials.
+const transporter = nodemailer.createTransport({
+    host: "smtp-relay.brevo.com",
+    port: 587, // true for 465, false for other ports
     auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_PASS,
+        user: process.env.SMTP_USER, // generated ethereal user
+        pass: process.env.SMTP_PASS, // generated ethereal password
     },
-  });
+});
 
-  const response = await transporter.sendMail({
-    from: `"Ankit Kumar" <${process.env.GMAIL_USER}>`,
+const sendEmail = async ({to, subject, body}) => {
+    const response = await transporter.sendMail({
+    from: process.env.SENDER_EMAIL, // sender address
     to,
     subject,
-    html: body,
-  });
+    html: body, 
+    });
+    return response;
+}
 
-  return response;
-};
 
 export default sendEmail;
+
+
