@@ -1,6 +1,6 @@
 # 📋 Project Management Platform
 
-A full-stack project management platform built with React, Node.js, and Prisma. This application helps teams organize projects, manage tasks, and collaborate effectively.
+A full-stack project management platform built with React, Node.js, and Prisma. This application helps teams organize projects, manage tasks, collaborate effectively, and use an integrated chatbot for quicker assistance.
 
 ## 🏗️ Architecture
 
@@ -17,6 +17,7 @@ This project follows a client-server architecture:
 - 👥 **Team Collaboration**: Invite team members and manage permissions
 - 📊 **Analytics Dashboard**: Visual insights into project progress and team performance
 - 📅 **Calendar Integration**: Schedule and track project timelines
+- 🤖 **Chatbot Assistant**: Get quick help and project guidance through an in-app chatbot
 - 🔔 **Real-time Updates**: Stay updated with project changes
 - 🎨 **Modern UI**: Clean, responsive design with dark/light theme support
 

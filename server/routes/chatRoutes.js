@@ -3,9 +3,7 @@ import express from "express";
 const router = express.Router();
 
 router.post("/", async (req, res) => {
-
   try {
-
     const { message } = req.body;
 
     const response = await fetch(
@@ -19,7 +17,7 @@ router.post("/", async (req, res) => {
         },
 
         body: JSON.stringify({
-          model: "llama-3.1-8b-instant",
+          model: "openai/gpt-oss-20b", // Updated model
 
           messages: [
             {
@@ -38,16 +36,16 @@ router.post("/", async (req, res) => {
 
     const data = await response.json();
 
-    if (!data.choices) {
-      return res.status(500).json({
-        content: "AI unavailable",
+    if (!response.ok) {
+      console.error("Groq API Error:", data);
+
+      return res.status(response.status).json({
+        content: data?.error?.message || "AI unavailable",
       });
     }
 
     res.json(data.choices[0].message);
-
   } catch (error) {
-
     console.log(error);
 
     res.status(500).json({

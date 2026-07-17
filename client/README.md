@@ -30,6 +30,7 @@
 - **Analytics:** View project analytics, including progress, completion rate, and team size.
 - **Task Management:** Assign tasks to team members, set due dates, and track task status.
 - **User Management:** Invite team members, manage user roles, and view user activity.
+- **Chatbot Assistant:** Access an in-app chatbot for quick help and project guidance.
 
 ## 🛠️ Tech Stack <a name="-tech-stack"></a>
 
